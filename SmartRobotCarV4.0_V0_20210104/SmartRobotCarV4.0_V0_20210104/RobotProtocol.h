@@ -10,8 +10,11 @@
 #include <Arduino.h>
 
 // Protocol Constants
-#define PROTOCOL_START_BYTE    0xAA
-#define PROTOCOL_MAX_DATA_SIZE 32
+#define PROTOCOL_START_BYTE       0xAA
+#define PROTOCOL_MAX_DATA_SIZE    32
+#define PROTOCOL_HEADER_SIZE      3     // start + type + length
+#define PROTOCOL_MIN_PACKET_SIZE  4     // header + checksum
+#define PROTOCOL_DEFAULT_TIMEOUT  50    // ms - optimized for loop performance
 
 // Message Types: ESP32 → Arduino (Commands)
 enum ESP32Command : uint8_t {
@@ -115,8 +118,12 @@ public:
     }
 
     // Send a message
+    // Returns: true if successfully sent, false on error
     bool sendMessage(uint8_t type, const uint8_t* data = nullptr, uint8_t length = 0) {
-        if (length > PROTOCOL_MAX_DATA_SIZE) return false;
+        if (length > PROTOCOL_MAX_DATA_SIZE) {
+            _lastError = ERR_INVALID_COMMAND;
+            return false;
+        }
 
         ProtocolMessage msg;
         msg.start = PROTOCOL_START_BYTE;
@@ -129,22 +136,40 @@ public:
 
         msg.checksum = calculateChecksum(&msg);
 
-        // Send message
-        size_t written = _serial->write((uint8_t*)&msg, 3 + length + 1);
-        return written == (3 + length + 1);
+        // Send message - use proper packet size
+        size_t packetSize = PROTOCOL_HEADER_SIZE + length + 1;
+        size_t written = _serial->write((uint8_t*)&msg, packetSize);
+
+        if (written != packetSize) {
+            _lastError = ERR_TIMEOUT;
+            return false;
+        }
+
+        _lastError = ERR_NONE;
+        return true;
     }
 
-    // Receive a message (non-blocking)
-    bool receiveMessage(ProtocolMessage* msg, uint16_t timeout_ms = 100) {
+    // Receive a message (non-blocking with timeout)
+    // Returns: true if valid message received, false on timeout/error
+    // Note: Use short timeout (5-10ms) in main loop to avoid blocking
+    bool receiveMessage(ProtocolMessage* msg, uint16_t timeout_ms = PROTOCOL_DEFAULT_TIMEOUT) {
         unsigned long start = millis();
 
-        // Wait for start byte
+        // Wait for start byte (with overflow protection)
+        msg->start = 0;
+        uint16_t bytesSkipped = 0;
         while (millis() - start < timeout_ms) {
             if (_serial->available() >= 1) {
                 uint8_t byte = _serial->read();
                 if (byte == PROTOCOL_START_BYTE) {
                     msg->start = byte;
                     break;
+                }
+                // Prevent reading too many garbage bytes
+                if (++bytesSkipped > 100) {
+                    _lastError = ERR_INVALID_COMMAND;
+                    clearBuffer();
+                    return false;
                 }
             }
         }

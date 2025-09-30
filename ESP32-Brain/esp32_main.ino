@@ -25,14 +25,17 @@ const IPAddress AP_GATEWAY(192, 168, 4, 1);
 const IPAddress AP_SUBNET(255, 255, 255, 0);
 
 // Serial connection to Arduino
-#define ARDUINO_SERIAL Serial
+// Note: Serial is used for debugging (USB), Serial2 for Arduino communication
+#define ARDUINO_SERIAL Serial2
 #define ARDUINO_BAUD 9600
+#define ARDUINO_RX_PIN 16  // GPIO16 (U2RXD)
+#define ARDUINO_TX_PIN 17  // GPIO17 (U2TXD)
 
 // Web Server
 WebServer server(80);
 
-// Protocol handler for Arduino communication
-RobotProtocol protocol(&ARDUINO_SERIAL);
+// Protocol handler for Arduino communication (will be initialized in setup)
+RobotProtocol* protocol = nullptr;
 
 // Current state
 struct RobotState {
@@ -75,17 +78,23 @@ void setup() {
     // Setup Web Server
     setupWebServer();
 
-    // Start Arduino communication
-    // Note: Serial already used for debugging, use Serial2 for Arduino
-    // Remap: Use GPIO 16 (RX2) and GPIO 17 (TX2)
-    Serial2.begin(ARDUINO_BAUD, SERIAL_8N1, 16, 17);
+    // Start Arduino communication on Serial2
+    Serial.println("[Serial] Initializing Arduino communication on Serial2...");
+    ARDUINO_SERIAL.begin(ARDUINO_BAUD, SERIAL_8N1, ARDUINO_RX_PIN, ARDUINO_TX_PIN);
     delay(100);
+
+    // Initialize protocol handler
+    protocol = new RobotProtocol(&ARDUINO_SERIAL);
 
     Serial.println("\n✓ ESP32 Brain Ready!");
     Serial.print("✓ Web Interface: http://");
     Serial.print(WiFi.softAPIP());
     Serial.println("/");
-    Serial.print("✓ mDNS: http://elegoo-robot.local/\n");
+    Serial.println("✓ mDNS: http://elegoo-robot.local");
+    Serial.print("✓ Arduino Serial: RX=GPIO");
+    Serial.print(ARDUINO_RX_PIN);
+    Serial.print(", TX=GPIO");
+    Serial.println(ARDUINO_TX_PIN);
 }
 
 void loop() {
@@ -98,15 +107,18 @@ void loop() {
     // Send heartbeat every second
     static unsigned long lastHeartbeat = 0;
     if (millis() - lastHeartbeat > 1000) {
-        uint8_t data = 0;
-        protocol.sendMessage(CMD_PING, &data, 0);
+        if (protocol) {
+            protocol->sendMessage(CMD_PING, nullptr, 0);
+        }
         lastHeartbeat = millis();
     }
 
     // Request sensor data every 100ms
     static unsigned long lastSensorRequest = 0;
     if (millis() - lastSensorRequest > 100) {
-        protocol.sendMessage(CMD_REQUEST_SENSORS, nullptr, 0);
+        if (protocol) {
+            protocol->sendMessage(CMD_REQUEST_SENSORS, nullptr, 0);
+        }
         lastSensorRequest = millis();
     }
 }
@@ -179,15 +191,19 @@ void setupWebServer() {
             return;
         }
 
-        int mode = server.arg("mode").toInt();
-        uint8_t data = (uint8_t)mode;
-        protocol.sendMessage(CMD_SET_MODE, &data, 1);
+        if (protocol) {
+            int mode = server.arg("mode").toInt();
+            uint8_t data = (uint8_t)mode;
+            protocol->sendMessage(CMD_SET_MODE, &data, 1);
+        }
 
         server.send(200, "application/json", "{\"status\":\"ok\"}");
     });
 
     server.on("/api/stop", HTTP_POST, []() {
-        protocol.sendMessage(CMD_EMERGENCY_STOP, nullptr, 0);
+        if (protocol) {
+            protocol->sendMessage(CMD_EMERGENCY_STOP, nullptr, 0);
+        }
         server.send(200, "application/json", "{\"status\":\"ok\"}");
     });
 
@@ -206,9 +222,11 @@ void handleNotFound() {
 }
 
 void processArduinoMessages() {
+    if (!protocol) return;
+
     ProtocolMessage msg;
 
-    if (protocol.receiveMessage(&msg, 5)) {
+    if (protocol->receiveMessage(&msg, 5)) {
         robotState.arduinoConnected = true;
 
         switch (msg.type) {
@@ -237,12 +255,14 @@ void processArduinoMessages() {
 }
 
 void sendMotorCommand(MotorDirection dir, uint8_t speed) {
+    if (!protocol) return;
+
     uint8_t data[3];
     data[0] = (uint8_t)dir;
     data[1] = speed;  // speedL
     data[2] = speed;  // speedR
 
-    protocol.sendMessage(CMD_MOTOR_CONTROL, data, 3);
+    protocol->sendMessage(CMD_MOTOR_CONTROL, data, 3);
 }
 
 String generateWebInterface() {

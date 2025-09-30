@@ -11,6 +11,9 @@
 #include "RobotProtocol.h"
 #include "ApplicationFunctionSet_xxx0.h"
 
+// Forward declarations of external functions
+extern void ApplicationFunctionSet_SmartRobotCarMotionControl(SmartRobotCarMotionControl direction, uint8_t is_speed);
+
 class ESP32CommunicationHandler {
 private:
     RobotProtocol protocol;
