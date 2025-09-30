@@ -11,8 +11,9 @@
 #include "RobotProtocol.h"
 #include "ApplicationFunctionSet_xxx0.h"
 
-// Forward declarations of external functions
-extern void ApplicationFunctionSet_SmartRobotCarMotionControl(SmartRobotCarMotionControl direction, uint8_t is_speed);
+// Forward declarations - function signature defined in ApplicationFunctionSet_xxx0.cpp
+// We can't forward declare it here because the enum SmartRobotCarMotionControl
+// is defined in the .cpp file. Instead, we'll declare it in the function where needed.
 
 // Connection state tracking
 enum ESP32ConnectionState {
@@ -252,6 +253,7 @@ private:
     void handleMotorCommand(uint8_t dir, uint8_t speedL, uint8_t speedR) {
         extern DeviceDriverSet_Motor AppMotor;
         extern Application_xxx Application_SmartRobotCarxxx0;
+        extern ApplicationFunctionSet Application_FunctionSet;
 
         // Set to manual/rocker mode when receiving ESP32 commands
         Application_SmartRobotCarxxx0.Functional_Mode = Rocker_mode;
@@ -259,42 +261,38 @@ private:
         // Average speed for unified control
         uint8_t speed = (speedL + speedR) / 2;
 
-        SmartRobotCarMotionControl motion;
-
+        // Map protocol direction to motor control
+        // We use the Application_FunctionSet method directly
         switch (dir) {
             case DIR_FORWARD:
-                motion = Forward;
+                Application_FunctionSet.ApplicationFunctionSet_SmartRobotCarMotionControl(Forward, speed);
                 break;
             case DIR_BACKWARD:
-                motion = Backward;
+                Application_FunctionSet.ApplicationFunctionSet_SmartRobotCarMotionControl(Backward, speed);
                 break;
             case DIR_LEFT:
-                motion = Left;
+                Application_FunctionSet.ApplicationFunctionSet_SmartRobotCarMotionControl(Left, speed);
                 break;
             case DIR_RIGHT:
-                motion = Right;
+                Application_FunctionSet.ApplicationFunctionSet_SmartRobotCarMotionControl(Right, speed);
                 break;
             case DIR_LEFT_FORWARD:
-                motion = LeftForward;
+                Application_FunctionSet.ApplicationFunctionSet_SmartRobotCarMotionControl(LeftForward, speed);
                 break;
             case DIR_LEFT_BACKWARD:
-                motion = LeftBackward;
+                Application_FunctionSet.ApplicationFunctionSet_SmartRobotCarMotionControl(LeftBackward, speed);
                 break;
             case DIR_RIGHT_FORWARD:
-                motion = RightForward;
+                Application_FunctionSet.ApplicationFunctionSet_SmartRobotCarMotionControl(RightForward, speed);
                 break;
             case DIR_RIGHT_BACKWARD:
-                motion = RightBackward;
+                Application_FunctionSet.ApplicationFunctionSet_SmartRobotCarMotionControl(RightBackward, speed);
                 break;
             case DIR_STOP:
             default:
-                motion = stop_it;
-                speed = 0;
+                Application_FunctionSet.ApplicationFunctionSet_SmartRobotCarMotionControl(stop_it, 0);
                 break;
         }
-
-        // Use existing motor control function
-        ApplicationFunctionSet_SmartRobotCarMotionControl(motion, speed);
     }
 
     void setOperatingMode(uint8_t mode) {
@@ -406,9 +404,9 @@ private:
     void handleDisconnect() {
         // Optional: Safe actions when ESP32 disconnects
         // For example: stop motors, switch to standby mode
-        extern Application_xxx Application_SmartRobotCarxxx0;
 
         // Could switch to standby, but let's allow IR/BLE to continue
+        // extern Application_xxx Application_SmartRobotCarxxx0;
         // Application_SmartRobotCarxxx0.Functional_Mode = Standby_mode;
     }
 
