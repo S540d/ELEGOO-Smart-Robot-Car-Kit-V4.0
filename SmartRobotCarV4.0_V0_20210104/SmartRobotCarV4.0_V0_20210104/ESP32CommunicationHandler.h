@@ -10,6 +10,7 @@
 #include <Arduino.h>
 #include "RobotProtocol.h"
 #include "ApplicationFunctionSet_xxx0.h"
+#include "DeviceDriverSet_xxx0.h"
 
 // Forward declarations - function signature defined in ApplicationFunctionSet_xxx0.cpp
 // We can't forward declare it here because the enum SmartRobotCarMotionControl
@@ -151,9 +152,6 @@ public:
 
 private:
     void handleCommand(ProtocolMessage* msg) {
-        extern ApplicationFunctionSet Application_FunctionSet;
-        extern Application_xxx Application_SmartRobotCarxxx0;
-
         switch (msg->type) {
             case CMD_MOTOR_CONTROL: {
                 if (msg->length >= 3) {
@@ -172,7 +170,6 @@ private:
                     uint8_t servo_id = msg->data[0];
                     uint8_t angle = msg->data[1];
 
-                    extern DeviceDriverSet_Servo AppServo;
                     if (servo_id == 0) {
                         AppServo.DeviceDriverSet_Servo_control(angle);
                     }
@@ -186,7 +183,6 @@ private:
                     uint8_t g = msg->data[1];
                     uint8_t b = msg->data[2];
 
-                    extern DeviceDriverSet_RBGLED AppRBG_LED;
                     AppRBG_LED.DeviceDriverSet_RBGLED_Color(0, r, g, b);
                 }
                 break;
@@ -201,7 +197,6 @@ private:
             }
 
             case CMD_EMERGENCY_STOP: {
-                extern DeviceDriverSet_Motor AppMotor;
                 AppMotor.DeviceDriverSet_Motor_control(
                     direction_void, 0, direction_void, 0, control_enable);
                 break;
@@ -236,7 +231,6 @@ private:
 
             case CMD_CALIBRATE_SENSORS: {
                 // Trigger sensor calibration (if implemented)
-                extern ApplicationFunctionSet Application_FunctionSet;
                 // Future: Add calibration routine
                 protocol.sendMessage(RSP_ACK, nullptr, 0);
                 diagnostics.messagesSent++;
@@ -251,53 +245,44 @@ private:
     }
 
     void handleMotorCommand(uint8_t dir, uint8_t speedL, uint8_t speedR) {
-        extern DeviceDriverSet_Motor AppMotor;
-        extern Application_xxx Application_SmartRobotCarxxx0;
-        extern ApplicationFunctionSet Application_FunctionSet;
-
         // Set to manual/rocker mode when receiving ESP32 commands
         Application_SmartRobotCarxxx0.Functional_Mode = Rocker_mode;
 
-        // Average speed for unified control
-        uint8_t speed = (speedL + speedR) / 2;
-
-        // Map protocol direction to motor control
-        // We use the Application_FunctionSet method directly
+        // Direct motor control using AppMotor
+        // Parameters: directionA, speedA, directionB, speedB, enable
         switch (dir) {
             case DIR_FORWARD:
-                Application_FunctionSet.ApplicationFunctionSet_SmartRobotCarMotionControl(Forward, speed);
+                AppMotor.DeviceDriverSet_Motor_control(Forward, speedL, Forward, speedR, control_enable);
                 break;
             case DIR_BACKWARD:
-                Application_FunctionSet.ApplicationFunctionSet_SmartRobotCarMotionControl(Backward, speed);
+                AppMotor.DeviceDriverSet_Motor_control(Backward, speedL, Backward, speedR, control_enable);
                 break;
             case DIR_LEFT:
-                Application_FunctionSet.ApplicationFunctionSet_SmartRobotCarMotionControl(Left, speed);
+                AppMotor.DeviceDriverSet_Motor_control(Backward, speedL, Forward, speedR, control_enable);
                 break;
             case DIR_RIGHT:
-                Application_FunctionSet.ApplicationFunctionSet_SmartRobotCarMotionControl(Right, speed);
+                AppMotor.DeviceDriverSet_Motor_control(Forward, speedL, Backward, speedR, control_enable);
                 break;
             case DIR_LEFT_FORWARD:
-                Application_FunctionSet.ApplicationFunctionSet_SmartRobotCarMotionControl(LeftForward, speed);
+                AppMotor.DeviceDriverSet_Motor_control(Forward, speedL/2, Forward, speedR, control_enable);
                 break;
             case DIR_LEFT_BACKWARD:
-                Application_FunctionSet.ApplicationFunctionSet_SmartRobotCarMotionControl(LeftBackward, speed);
+                AppMotor.DeviceDriverSet_Motor_control(Backward, speedL/2, Backward, speedR, control_enable);
                 break;
             case DIR_RIGHT_FORWARD:
-                Application_FunctionSet.ApplicationFunctionSet_SmartRobotCarMotionControl(RightForward, speed);
+                AppMotor.DeviceDriverSet_Motor_control(Forward, speedL, Forward, speedR/2, control_enable);
                 break;
             case DIR_RIGHT_BACKWARD:
-                Application_FunctionSet.ApplicationFunctionSet_SmartRobotCarMotionControl(RightBackward, speed);
+                AppMotor.DeviceDriverSet_Motor_control(Backward, speedL, Backward, speedR/2, control_enable);
                 break;
             case DIR_STOP:
             default:
-                Application_FunctionSet.ApplicationFunctionSet_SmartRobotCarMotionControl(stop_it, 0);
+                AppMotor.DeviceDriverSet_Motor_control(direction_void, 0, direction_void, 0, control_enable);
                 break;
         }
     }
 
     void setOperatingMode(uint8_t mode) {
-        extern Application_xxx Application_SmartRobotCarxxx0;
-
         switch (mode) {
             case MODE_STANDBY:
                 Application_SmartRobotCarxxx0.Functional_Mode = Standby_mode;
@@ -320,16 +305,13 @@ private:
     }
 
     SensorPacket collectSensorData() {
-        extern ApplicationFunctionSet Application_FunctionSet;
-        extern Application_xxx Application_SmartRobotCarxxx0;
-
         SensorPacket packet;
 
         packet.ultrasonic_cm = Application_FunctionSet.UltrasoundData_cm;
         packet.line_left = Application_FunctionSet.TrackingData_L;
         packet.line_middle = Application_FunctionSet.TrackingData_M;
         packet.line_right = Application_FunctionSet.TrackingData_R;
-        packet.voltage_mv = (uint16_t)(Application_FunctionSet.VoltageData * 1000);
+        packet.voltage_mv = (uint16_t)(Application_FunctionSet.VoltageData_V * 1000);
 
         // IMU data (multiply by 10 for decimal precision)
         packet.imu_pitch = (int16_t)(Application_FunctionSet.Pitch * 10);
@@ -342,7 +324,7 @@ private:
         packet.flags |= STATUS_FLAG_MOTORS_OK;      // Assume motors OK
         packet.flags |= STATUS_FLAG_SENSORS_OK;     // Assume sensors OK
 
-        if (Application_FunctionSet.VoltageData > 6.5) {
+        if (Application_FunctionSet.VoltageData_V > 6.5) {
             packet.flags |= STATUS_FLAG_BATTERY_OK;
         }
 

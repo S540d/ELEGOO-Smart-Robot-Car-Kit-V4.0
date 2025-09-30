@@ -209,4 +209,10 @@ private:
   // #define bRECV_ # 1053031451
 };
 
+// Global device driver instances - defined in ApplicationFunctionSet_xxx0.cpp
+extern DeviceDriverSet_RBGLED AppRBG_LED;
+extern DeviceDriverSet_Motor AppMotor;
+extern DeviceDriverSet_Servo AppServo;
+extern DeviceDriverSet_IRrecv AppIRrecv;
+
 #endif

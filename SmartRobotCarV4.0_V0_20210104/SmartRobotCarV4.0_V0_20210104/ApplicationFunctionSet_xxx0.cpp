@@ -20,8 +20,6 @@
 #define _is_print 0
 #define _Test_print 0
 
-ApplicationFunctionSet Application_FunctionSet;
-
 /*硬件设备成员对象序列*/
 MPU6050_getdata AppMPU6050getdata;
 DeviceDriverSet_RBGLED AppRBG_LED;
@@ -43,51 +41,11 @@ function_xxx(long x, long s, long e) //f(x)
     return false;
 }
 
-/*运动方向控制序列*/
-enum SmartRobotCarMotionControl
-{
-  Forward,       //(1)
-  Backward,      //(2)
-  Left,          //(3)
-  Right,         //(4)
-  LeftForward,   //(5)
-  LeftBackward,  //(6)
-  RightForward,  //(7)
-  RightBackward, //(8)
-  stop_it        //(9)
-};               //direction方向:（1）、（2）、 （3）、（4）、（5）、（6）
+// Enums and struct moved to header file for visibility
 
-/*模式控制序列*/
-enum SmartRobotCarFunctionalModel
-{
-  Standby_mode,           /*空闲模式*/
-  TraceBased_mode,        /*循迹模式*/
-  ObstacleAvoidance_mode, /*避障模式*/
-  Follow_mode,            /*跟随模式*/
-  Rocker_mode,            /*摇杆模式*/
-  CMD_inspect,
-  CMD_Programming_mode,                   /*编程模式*/
-  CMD_ClearAllFunctions_Standby_mode,     /*清除所有功能：进入空闲模式*/
-  CMD_ClearAllFunctions_Programming_mode, /*清除所有功能：进入编程模式*/
-  CMD_MotorControl,                       /*电机控制模式*/
-  CMD_CarControl_TimeLimit,               /*小车方向控制：有时间限定模式*/
-  CMD_CarControl_NoTimeLimit,             /*小车方向控制：无时间限定模式*/
-  CMD_MotorControl_Speed,                 /*电机控制:控制转速模式*/
-  CMD_ServoControl,                       /*舵机控制:模式*/
-  CMD_LightingControl_TimeLimit,          /*灯光控制:模式*/
-  CMD_LightingControl_NoTimeLimit,        /*灯光控制:模式*/
-
-};
-
-/*控制管理成员*/
-struct Application_xxx
-{
-  SmartRobotCarMotionControl Motion_Control;
-  SmartRobotCarFunctionalModel Functional_Mode;
-  unsigned long CMD_CarControl_Millis;
-  unsigned long CMD_LightingControl_Millis;
-};
+/*硬件设备成员对象实例化*/
 Application_xxx Application_SmartRobotCarxxx0;
+ApplicationFunctionSet Application_FunctionSet;
 
 // Global ultrasound data for obstacle detection
 volatile uint16_t g_UltrasoundData_cm = 0;

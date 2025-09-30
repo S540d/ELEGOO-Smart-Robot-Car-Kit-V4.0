@@ -9,7 +9,7 @@
 #ifndef _ApplicationFunctionSet_xxx0_H_
 #define _ApplicationFunctionSet_xxx0_H_
 
-#include <arduino.h>
+#include <Arduino.h>
 
 class ApplicationFunctionSet
 {
@@ -54,14 +54,16 @@ public: /*CMD*/
   void CMD_LEDNumberDisplayControl_xxx0(uint8_t is_LEDNumber);
   void CMD_TrajectoryControl_xxx0(void);
 
-private:
-  /*传感器原数据*/
+public:
+  /*传感器原数据 - Made public for ESP32 access*/
   volatile float VoltageData_V;        //电压数据
   volatile uint16_t UltrasoundData_mm; //超声波数据
   volatile uint16_t UltrasoundData_cm; //超声波数据
   volatile int TrackingData_L;         //循迹数据
   volatile int TrackingData_M;         //循迹数据
   volatile int TrackingData_R;
+  volatile float Pitch;                //IMU pitch
+  volatile float Roll;                 //IMU roll
   /*传感器状态*/
   boolean VoltageDetectionStatus = false;
   boolean UltrasoundDetectionStatus = false;
@@ -131,4 +133,49 @@ private:
   uint8_t CMD_is_FastLED_setBrightness = 20;
 };
 extern ApplicationFunctionSet Application_FunctionSet;
+
+// Motion control enums - moved from .cpp for visibility
+enum SmartRobotCarMotionControl
+{
+  Forward,       //(1)
+  Backward,      //(2)
+  Left,          //(3)
+  Right,         //(4)
+  LeftForward,   //(5)
+  LeftBackward,  //(6)
+  RightForward,  //(7)
+  RightBackward, //(8)
+  stop_it        //(9)
+};
+
+enum SmartRobotCarFunctionalModel
+{
+  Standby_mode,           /*空闲模式*/
+  TraceBased_mode,        /*循迹模式*/
+  ObstacleAvoidance_mode, /*避障模式*/
+  Follow_mode,            /*跟随模式*/
+  Rocker_mode,            /*摇杆模式*/
+  CMD_inspect,
+  CMD_Programming_mode,                   /*编程模式*/
+  CMD_ClearAllFunctions_Standby_mode,     /*清除所有功能：进入空闲模式*/
+  CMD_ClearAllFunctions_Programming_mode, /*清除所有功能：进入编程模式*/
+  CMD_MotorControl,                       /*电机控制模式*/
+  CMD_CarControl_TimeLimit,               /*小车方向控制：有时间限定模式*/
+  CMD_CarControl_NoTimeLimit,             /*小车方向控制：无时间限定模式*/
+  CMD_MotorControl_Speed,                 /*电机控制:控制转速模式*/
+  CMD_ServoControl,                       /*舵机控制:模式*/
+  CMD_LightingControl_TimeLimit,          /*灯光控制:模式*/
+  CMD_LightingControl_NoTimeLimit,        /*灯光控制:模式*/
+};
+
+// Control management structure
+struct Application_xxx
+{
+  SmartRobotCarMotionControl Motion_Control;
+  SmartRobotCarFunctionalModel Functional_Mode;
+  unsigned long CMD_CarControl_Millis;
+  unsigned long CMD_LightingControl_Millis;
+};
+extern Application_xxx Application_SmartRobotCarxxx0;
+
 #endif
