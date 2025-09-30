@@ -25,6 +25,9 @@ enum ESP32Command : uint8_t {
     CMD_EMERGENCY_STOP     = 0x05,  // []
     CMD_REQUEST_SENSORS    = 0x06,  // []
     CMD_PING               = 0x07,  // [] - Heartbeat
+    CMD_GET_DIAGNOSTICS    = 0x08,  // [] - Request diagnostic data
+    CMD_RESET_DIAGNOSTICS  = 0x09,  // [] - Reset diagnostic counters
+    CMD_CALIBRATE_SENSORS  = 0x0A,  // [] - Trigger sensor calibration
 };
 
 // Message Types: Arduino → ESP32 (Responses)
@@ -33,6 +36,8 @@ enum ArduinoResponse : uint8_t {
     RSP_ERROR             = 0x82,  // [error_code]
     RSP_STATUS            = 0x83,  // [status_byte]
     RSP_PONG              = 0x84,  // [] - Heartbeat response
+    RSP_DIAGNOSTIC        = 0x85,  // [16 bytes diagnostic data]
+    RSP_ACK               = 0x86,  // [] - Generic acknowledgment
 };
 
 // Motor Direction Encoding

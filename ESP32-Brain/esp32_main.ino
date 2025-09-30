@@ -37,9 +37,22 @@ WebServer server(80);
 // Protocol handler for Arduino communication (will be initialized in setup)
 RobotProtocol* protocol = nullptr;
 
+// Diagnostic data from Arduino
+struct ArduinoDiagnostics {
+    uint16_t messagesReceived;
+    uint16_t messagesSent;
+    uint16_t crcErrors;
+    uint16_t timeouts;
+    uint16_t invalidCommands;
+    uint16_t avgLoopTime;
+    uint8_t connectionState;
+    unsigned long lastUpdate;
+};
+
 // Current state
 struct RobotState {
     SensorPacket sensors;
+    ArduinoDiagnostics diagnostics;
     bool arduinoConnected;
     unsigned long lastSensorUpdate;
     OperatingMode currentMode;
@@ -71,6 +84,7 @@ void setup() {
     robotState.currentMode = MODE_STANDBY;
     robotState.motorSpeed = 150;
     memset(&robotState.sensors, 0, sizeof(SensorPacket));
+    memset(&robotState.diagnostics, 0, sizeof(ArduinoDiagnostics));
 
     // Setup WiFi AP
     setupWiFi();
@@ -120,6 +134,15 @@ void loop() {
             protocol->sendMessage(CMD_REQUEST_SENSORS, nullptr, 0);
         }
         lastSensorRequest = millis();
+    }
+
+    // Request diagnostics every 5 seconds
+    static unsigned long lastDiagRequest = 0;
+    if (millis() - lastDiagRequest > 5000) {
+        if (protocol && robotState.arduinoConnected) {
+            protocol->sendMessage(CMD_GET_DIAGNOSTICS, nullptr, 0);
+        }
+        lastDiagRequest = millis();
     }
 }
 
@@ -207,6 +230,48 @@ void setupWebServer() {
         server.send(200, "application/json", "{\"status\":\"ok\"}");
     });
 
+    server.on("/api/diagnostics", HTTP_GET, []() {
+        char json[512];
+        snprintf(json, sizeof(json),
+            "{"
+            "\"arduino\":{"
+            "\"connected\":%s,"
+            "\"messagesRx\":%d,"
+            "\"messagesTx\":%d,"
+            "\"crcErrors\":%d,"
+            "\"timeouts\":%d,"
+            "\"invalidCmds\":%d,"
+            "\"avgLoopTime\":%d,"
+            "\"state\":%d"
+            "},"
+            "\"esp32\":{"
+            "\"uptime\":%lu,"
+            "\"freeHeap\":%d,"
+            "\"clients\":%d"
+            "}"
+            "}",
+            robotState.arduinoConnected ? "true" : "false",
+            robotState.diagnostics.messagesReceived,
+            robotState.diagnostics.messagesSent,
+            robotState.diagnostics.crcErrors,
+            robotState.diagnostics.timeouts,
+            robotState.diagnostics.invalidCommands,
+            robotState.diagnostics.avgLoopTime,
+            robotState.diagnostics.connectionState,
+            millis() / 1000,
+            ESP.getFreeHeap(),
+            WiFi.softAPgetStationNum()
+        );
+        server.send(200, "application/json", json);
+    });
+
+    server.on("/api/reset-diagnostics", HTTP_POST, []() {
+        if (protocol) {
+            protocol->sendMessage(CMD_RESET_DIAGNOSTICS, nullptr, 0);
+        }
+        server.send(200, "application/json", "{\"status\":\"ok\"}");
+    });
+
     server.onNotFound(handleNotFound);
 
     server.begin();
@@ -237,6 +302,31 @@ void processArduinoMessages() {
                 }
                 break;
 
+            case RSP_DIAGNOSTIC:
+                if (msg.length >= 16) {
+                    // Unpack diagnostic data
+                    robotState.diagnostics.messagesReceived = msg.data[0] | (msg.data[1] << 8);
+                    robotState.diagnostics.messagesSent = msg.data[2] | (msg.data[3] << 8);
+                    robotState.diagnostics.crcErrors = msg.data[4] | (msg.data[5] << 8);
+                    robotState.diagnostics.timeouts = msg.data[6] | (msg.data[7] << 8);
+                    robotState.diagnostics.invalidCommands = msg.data[8] | (msg.data[9] << 8);
+                    robotState.diagnostics.avgLoopTime = msg.data[10] | (msg.data[11] << 8);
+                    robotState.diagnostics.connectionState = msg.data[12];
+                    robotState.diagnostics.lastUpdate = millis();
+
+                    Serial.println("\n[Diagnostics] Arduino Status:");
+                    Serial.printf("  RX: %d | TX: %d | CRC Err: %d | Timeouts: %d\n",
+                                  robotState.diagnostics.messagesReceived,
+                                  robotState.diagnostics.messagesSent,
+                                  robotState.diagnostics.crcErrors,
+                                  robotState.diagnostics.timeouts);
+                    Serial.printf("  Invalid Cmds: %d | Avg Loop: %dms | State: %d\n",
+                                  robotState.diagnostics.invalidCommands,
+                                  robotState.diagnostics.avgLoopTime,
+                                  robotState.diagnostics.connectionState);
+                }
+                break;
+
             case RSP_ERROR:
                 Serial.print("[Arduino] Error code: ");
                 Serial.println(msg.data[0]);
@@ -244,6 +334,10 @@ void processArduinoMessages() {
 
             case RSP_PONG:
                 // Heartbeat received
+                break;
+
+            case RSP_ACK:
+                // Generic acknowledgment
                 break;
         }
     }
