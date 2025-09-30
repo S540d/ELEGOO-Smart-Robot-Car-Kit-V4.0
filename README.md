@@ -14,6 +14,7 @@ This branch implements a revolutionary dual-MCU architecture where the ESP32-WRO
 - [Getting Started](#getting-started)
 - [Control Options](#control-options)
 - [Development Roadmap](#development-roadmap)
+- [Issues & Roadmap](ISSUES.md) ← Track progress and report issues
 
 ---
 
@@ -238,36 +239,46 @@ curl http://elegoo-robot.local/api/sensors
 
 ## 🚦 Getting Started
 
-### Prerequisites
-- Arduino IDE 2.x or PlatformIO
-- ESP32 board support installed
-- Basic understanding of Arduino & ESP32
+**📖 Detailed Step-by-Step Guide:** See [TESTING_GUIDE.md](TESTING_GUIDE.md) for complete instructions with troubleshooting!
 
-### Installation
+### Quick Start
 
 #### 1. Flash Arduino Uno
 ```bash
 # Open in Arduino IDE
 SmartRobotCarV4.0_V0_20210104/SmartRobotCarV4.0_V0_20210104/SmartRobotCarV4.0_V0_20210104.ino
 
-# Select: Tools → Board → Arduino Uno
-# Upload
+# Board: Arduino Uno
+# Libraries: FastLED 3.6.0, Servo
+# Upload!
 ```
 
 #### 2. Flash ESP32-CAM
 ```bash
-# Coming soon - ESP32 code
+# Open in Arduino IDE
 ESP32-Brain/esp32_main.ino
 
-# Select: Tools → Board → AI Thinker ESP32-CAM
-# Upload
+# Board: AI Thinker ESP32-CAM
+# ⚠️ IMPORTANT: Connect IO0 to GND during upload!
+# See ESP32-Brain/README.md for wiring details
+# Upload!
 ```
 
-#### 3. Connect to WiFi
+#### 3. Connect Hardware
+```
+ESP32-CAM ──→ Arduino Uno
+   TX      ──→    RX (D0)
+   RX      ──→    TX (D1)
+   GND     ──→    GND
+```
+
+#### 4. Access Web Interface
 1. Power on robot
-2. ESP32 creates WiFi AP: "ELEGOO-Robot-XXXX"
-3. Connect with password: "elegoo123"
-4. Open browser: http://192.168.4.1
+2. Connect to WiFi: "ELEGOO-Robot" (Password: "elegoo123")
+3. Open browser: http://192.168.4.1
+4. Control robot with touch-friendly interface!
+
+**🐛 Problems?** Check [TESTING_GUIDE.md](TESTING_GUIDE.md) for detailed troubleshooting!
 
 ---
 
@@ -339,9 +350,46 @@ ESP32-Brain/esp32_main.ino
 
 ---
 
+## 🐛 Code Quality & Testing
+
+### Code Review Results
+All code has been reviewed for:
+- ✅ Memory safety (buffer overflows prevented)
+- ✅ Null pointer checks
+- ✅ Timeout optimization (non-blocking communication)
+- ✅ Error handling & recovery
+- ✅ Cross-platform compatibility (Arduino + ESP32)
+
+### Known Limitations
+- Arduino Uno Flash: 98% used (near limit, but stable)
+- ESP32 Camera not yet implemented (Phase 3)
+- Web interface optimized for modern browsers (Safari, Chrome, Firefox)
+
+### Testing
+See [TESTING_GUIDE.md](TESTING_GUIDE.md) for comprehensive testing procedures including:
+- Hardware setup & wiring
+- Software upload instructions
+- Step-by-step verification
+- Troubleshooting guide
+- Performance benchmarks
+
+---
+
 ## 🤝 Contributing
 
 This is a personal project branch. Feel free to fork and experiment!
+
+**📋 See [ISSUES.md](ISSUES.md) for:**
+- Current testing tasks
+- Known limitations
+- Phase 3+ roadmap
+- How to report bugs
+
+Contributions welcome:
+- Bug reports (see ISSUES.md for format)
+- Feature requests (check Phase 3+ roadmap first)
+- Testing feedback (use [TESTING_GUIDE.md](TESTING_GUIDE.md))
+- Documentation improvements
 
 ---
 
